@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: waas-postgres
+    environment:
+      POSTGRES_USER: waas
+      POSTGRES_PASSWORD: waas_dev
+      POSTGRES_DB: waas_dev
+    ports:
+      - '5432:5432'
+    volumes:
+      - waas-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U waas']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: waas-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - waas-redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  waas-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: waas-gateway
+    ports:
+      - '3001:3001'
+    environment:
+      DATABASE_URL: postgresql://waas:waas_dev@postgres:5432/waas_dev
+      REDIS_URL: redis://redis:6379
+      PORT: '3001'
+      PERSISTENCE_MODE: prisma
+      PROVIDER_MODE: baileys
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  waas-pg-data:
+  waas-redis-data:

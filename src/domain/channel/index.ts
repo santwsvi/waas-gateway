@@ -1,0 +1,15 @@
+export { Channel } from './channel.aggregate.js';
+export { ChannelStatus, ProviderType } from './channel-status.js';
+export { ChannelConfig } from './value-objects/channel-config.vo.js';
+export { EncryptedCreds } from './value-objects/encrypted-creds.vo.js';
+export { InvalidStateTransitionError } from './errors/invalid-state-transition.error.js';
+export type { IChannelState } from './states/channel-state.interface.js';
+export type { IChannelRepository } from './ports/channel-repository.port.js';
+export { ChannelCreatedEvent } from './events/channel-created.event.js';
+export { ChannelConnectingEvent } from './events/channel-connecting.event.js';
+export { ChannelQrGeneratedEvent } from './events/channel-qr-generated.event.js';
+export { ChannelConnectedEvent } from './events/channel-connected.event.js';
+export { ChannelReconnectingEvent } from './events/channel-reconnecting.event.js';
+export { ChannelDisconnectedEvent } from './events/channel-disconnected.event.js';
+export { ChannelFailedEvent } from './events/channel-failed.event.js';
+export { type IProviderLifecycle, PROVIDER_LIFECYCLE } from './ports/provider-lifecycle.port.js';

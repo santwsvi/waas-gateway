@@ -1,14 +1,33 @@
-tags
-test.sh
-.luarc.json
-nvim
+# Dependencies
+node_modules/
 
-spell/
+# Build
+dist/
 
-# In your personal fork, you likely want to comment this, since it's recommended to track
-# nvim-pack-lock.json in version control - see :help vim.pack-lockfile
-# For the official `nvim-lua/kickstart.nvim` git repository, we leave it ignored to avoid unneeded
-# merge conflicts.
-nvim-pack-lock.json
+# Coverage
+coverage/
 
+# Environment
+.env
+.env.*
+
+# OS
 .DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+
+/generated/prisma
+
+# Baileys auth state
+.waas-auth/
+!.env.example

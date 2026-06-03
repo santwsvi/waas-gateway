@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Workspace {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  apiKeys        ApiKey[]
+  channels       Channel[]
+  messages       Message[]
+  webhookConfigs WebhookConfig[]
+  outboxEvents   OutboxEvent[]
+
+  @@map("workspaces")
+}
+
+model ApiKey {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  label       String    @db.VarChar(100)
+  keyHash     String    @unique @map("key_hash") @db.VarChar(64)
+  prefix      String    @db.VarChar(8)
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz()
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId], name: "idx_apikey_workspace")
+  @@map("api_keys")
+}
+
+model Channel {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId    String   @map("workspace_id") @db.Uuid
+  name           String   @db.VarChar(100)
+  providerType   String   @map("provider_type") @db.VarChar(20)
+  status         String   @default("CREATED") @db.VarChar(20)
+  config         Json     @default("{}")
+  encryptedCreds Bytes?   @map("encrypted_creds")
+  credsAlgorithm String?  @map("creds_algorithm") @db.VarChar(10)
+  credsKeyVersion Int?    @map("creds_key_version")
+  failureCode    String?  @map("failure_code") @db.VarChar(20)
+  failureMessage String?  @map("failure_message")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([workspaceId], name: "idx_channel_workspace")
+  @@index([workspaceId, status], name: "idx_channel_workspace_status")
+  @@map("channels")
+}
+
+model Message {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId         String    @map("workspace_id") @db.Uuid
+  channelId           String    @map("channel_id") @db.Uuid
+  direction           String    @db.VarChar(10)
+  toPhone             String    @map("to_phone") @db.VarChar(20)
+  fromPhone           String?   @map("from_phone") @db.VarChar(20)
+  contentType         String    @map("content_type") @db.VarChar(20)
+  contentBody         String    @map("content_body")
+  mediaUrl            String?   @map("media_url")
+  mimeType            String?   @map("mime_type") @db.VarChar(50)
+  templateId          String?   @map("template_id") @db.VarChar(100)
+  templateParams      Json?     @map("template_params")
+  status              String    @default("PENDING") @db.VarChar(20)
+  idempotencyKey      String    @unique @map("idempotency_key") @db.VarChar(100)
+  providerExternalId  String?   @map("provider_external_id") @db.VarChar(200)
+  providerTimestamp   DateTime? @map("provider_timestamp") @db.Timestamptz()
+  retryMaxAttempts    Int       @default(5) @map("retry_max_attempts")
+  retryBackoffBaseMs  Int       @default(1000) @map("retry_backoff_base_ms")
+  retryBackoffMultiplier Float  @default(2.0) @map("retry_backoff_multiplier")
+  failureCategory     String?  @map("failure_category") @db.VarChar(30)
+  failureMessage      String?  @map("failure_message")
+  failureRetryable    Boolean? @map("failure_retryable")
+  scheduledAt         DateTime? @map("scheduled_at") @db.Timestamptz()
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  workspace        Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  channel          Channel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  deliveryAttempts DeliveryAttempt[]
+
+  @@index([channelId], name: "idx_message_channel")
+  @@index([workspaceId, createdAt(sort: Desc)], name: "idx_message_workspace_created")
+  @@index([status], name: "idx_message_status")
+  @@map("messages")
+}
+
+model DeliveryAttempt {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId       String    @map("message_id") @db.Uuid
+  attemptNumber   Int       @map("attempt_number")
+  status          String    @db.VarChar(20)
+  providerResponse String? @map("provider_response")
+  failureCode     String?   @map("failure_code") @db.VarChar(50)
+  failureMessage  String?   @map("failure_message")
+  failureRetryable Boolean? @map("failure_retryable")
+  startedAt       DateTime  @map("started_at") @db.Timestamptz()
+  completedAt     DateTime? @map("completed_at") @db.Timestamptz()
+  durationMs      Int?      @map("duration_ms")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId], name: "idx_attempt_message")
+  @@map("delivery_attempts")
+}
+
+model OutboxEvent {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventType     String    @map("event_type") @db.VarChar(100)
+  aggregateType String    @map("aggregate_type") @db.VarChar(100)
+  aggregateId   String    @map("aggregate_id") @db.Uuid
+  workspaceId   String    @map("workspace_id") @db.Uuid
+  payload       Json
+  status        String    @default("PENDING") @db.VarChar(20)
+  retryCount    Int       @default(0) @map("retry_count")
+  lastError     String?   @map("last_error")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz()
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt], name: "idx_outbox_pending")
+  @@index([aggregateType, aggregateId], name: "idx_outbox_aggregate")
+  @@map("outbox_events")
+}
+
+model WebhookConfig {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId      String   @map("workspace_id") @db.Uuid
+  url              String
+  secretHash       String   @map("secret_hash") @db.VarChar(64)
+  eventTypes       Json     @default("[]") @map("event_types")
+  isActive         Boolean  @default(true) @map("is_active")
+  retryMaxAttempts Int      @default(3) @map("retry_max_attempts")
+  retryDelayMs     Int      @default(1000) @map("retry_delay_ms")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId], name: "idx_webhook_workspace")
+  @@map("webhook_configs")
+}
