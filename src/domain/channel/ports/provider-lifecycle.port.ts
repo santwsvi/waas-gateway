@@ -5,6 +5,7 @@ export interface IProviderLifecycle {
   connect(channel: Channel): Promise<void>;
   disconnect(channelId: string): Promise<void>;
   getStatus(channelId: string): Promise<ChannelStatus>;
+  requestPairingCode(channelId: string, phoneNumber: string): Promise<string>;
 }
 
 export const PROVIDER_LIFECYCLE = Symbol('IProviderLifecycle');

@@ -21,6 +21,11 @@ export class InMemoryProviderAdapter implements IProviderLifecycle, IMessageSend
     return this.channelStatuses.get(channelId) ?? ChannelStatus.Created;
   }
 
+  async requestPairingCode(channelId: string, _phoneNumber: string): Promise<string> {
+    this.channelStatuses.set(channelId, ChannelStatus.Connected);
+    return 'ABCD-EFGH';
+  }
+
   async sendText(channelId: string, to: PhoneNumber, body: string): Promise<ProviderMessageRef> {
     const ref = ProviderMessageRef.create(`inmemory-${crypto.randomUUID()}`, new Date());
     this._sentMessages.push({ channelId, to: to.value, content: { type: 'TEXT', body } });

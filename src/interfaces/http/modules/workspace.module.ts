@@ -1,12 +1,10 @@
 import { Module } from '@nestjs/common';
-import { InfrastructureModule } from '@infra/infrastructure.module.js';
 import { WORKSPACE_REPOSITORY } from '@domain/workspace/ports/workspace-repository.port.js';
 import { OUTBOX_REPOSITORY } from '@domain/shared/ports/outbox-repository.port.js';
 import { CreateWorkspaceUseCase } from '@app/workspace/create-workspace.use-case.js';
 import { WorkspaceController } from '../controllers/workspace.controller.js';
 
 @Module({
-  imports: [InfrastructureModule.register()],
   controllers: [WorkspaceController],
   providers: [
     {

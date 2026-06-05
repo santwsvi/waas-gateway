@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { InfrastructureModule } from '@infra/infrastructure.module.js';
 import { CHANNEL_REPOSITORY } from '@domain/channel/ports/channel-repository.port.js';
 import { WORKSPACE_REPOSITORY } from '@domain/workspace/ports/workspace-repository.port.js';
 import { OUTBOX_REPOSITORY } from '@domain/shared/ports/outbox-repository.port.js';
@@ -7,10 +6,10 @@ import { PROVIDER_LIFECYCLE } from '@domain/channel/ports/provider-lifecycle.por
 import { CreateChannelUseCase } from '@app/channel/create-channel.use-case.js';
 import { ConnectChannelUseCase } from '@app/channel/connect-channel.use-case.js';
 import { GetChannelStatusUseCase } from '@app/channel/get-channel-status.use-case.js';
+import { PairChannelUseCase } from '@app/channel/pair-channel.use-case.js';
 import { ChannelController } from '../controllers/channel.controller.js';
 
 @Module({
-  imports: [InfrastructureModule.register()],
   controllers: [ChannelController],
   providers: [
     {
@@ -40,6 +39,15 @@ import { ChannelController } from '../controllers/channel.controller.js';
           channelRepo as ConstructorParameters<typeof GetChannelStatusUseCase>[0],
         ),
       inject: [CHANNEL_REPOSITORY],
+    },
+    {
+      provide: PairChannelUseCase,
+      useFactory: (channelRepo: unknown, providerLifecycle: unknown) =>
+        new PairChannelUseCase(
+          channelRepo as ConstructorParameters<typeof PairChannelUseCase>[0],
+          providerLifecycle as ConstructorParameters<typeof PairChannelUseCase>[1],
+        ),
+      inject: [CHANNEL_REPOSITORY, PROVIDER_LIFECYCLE],
     },
   ],
 })

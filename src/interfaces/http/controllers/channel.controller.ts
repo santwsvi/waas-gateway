@@ -2,6 +2,7 @@ import { Controller, Post, Get, Body, Param, Inject } from '@nestjs/common';
 import { CreateChannelUseCase } from '@app/channel/create-channel.use-case.js';
 import { ConnectChannelUseCase } from '@app/channel/connect-channel.use-case.js';
 import { GetChannelStatusUseCase } from '@app/channel/get-channel-status.use-case.js';
+import { PairChannelUseCase } from '@app/channel/pair-channel.use-case.js';
 import { CreateChannelDto } from '../dto/create-channel.dto.js';
 import type { ProviderType } from '@domain/channel/channel-status.js';
 
@@ -14,6 +15,8 @@ export class ChannelController {
     private readonly connectChannel: ConnectChannelUseCase,
     @Inject(GetChannelStatusUseCase)
     private readonly getChannelStatus: GetChannelStatusUseCase,
+    @Inject(PairChannelUseCase)
+    private readonly pairChannel: PairChannelUseCase,
   ) {}
 
   @Post()
@@ -28,6 +31,11 @@ export class ChannelController {
   @Post(':id/connect')
   async connect(@Param('id') id: string) {
     return this.connectChannel.execute({ channelId: id });
+  }
+
+  @Post(':id/pair')
+  async pair(@Param('id') id: string, @Body() body: { phoneNumber: string }) {
+    return this.pairChannel.execute({ channelId: id, phoneNumber: body.phoneNumber });
   }
 
   @Get(':id')

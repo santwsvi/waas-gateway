@@ -6,6 +6,7 @@ import type { MessageStatus } from '@domain/messaging/message-status.js';
 import type { IMessageRepository } from '@domain/messaging/ports/message-repository.port.js';
 import type { IChannelRepository } from '@domain/channel/ports/channel-repository.port.js';
 import type { IOutboxRepository } from '@domain/shared/ports/outbox-repository.port.js';
+import type { IMessageSender } from '@domain/messaging/ports/message-sender.port.js';
 import type { MessageContentType } from '@domain/messaging/value-objects/message-content.vo.js';
 
 interface SendMessageInput {
@@ -36,6 +37,7 @@ export class SendMessageUseCase {
     private readonly messageRepo: IMessageRepository,
     private readonly channelRepo: IChannelRepository,
     private readonly outboxRepo: IOutboxRepository,
+    private readonly messageSender: IMessageSender,
   ) {}
 
   async execute(input: SendMessageInput): Promise<SendMessageOutput> {
@@ -69,6 +71,11 @@ export class SendMessageUseCase {
 
     message.markQueued();
 
+    // Send immediately via provider
+    message.markSending();
+    const ref = await this.dispatchToProvider(input.channelId, phoneNumber, content);
+    message.markSent(ref);
+
     await this.messageRepo.save(message);
 
     const events = message.clearEvents();
@@ -81,8 +88,26 @@ export class SendMessageUseCase {
     };
   }
 
+  private async dispatchToProvider(
+    channelId: string,
+    to: PhoneNumber,
+    content: MessageContent,
+  ) {
+    const data = content.data;
+    switch (data.type) {
+      case 'TEXT':
+        return this.messageSender.sendText(channelId, to, data.body);
+      case 'MEDIA':
+        return this.messageSender.sendMedia(channelId, to, data.url, data.mimeType, data.caption);
+      case 'TEMPLATE':
+        return this.messageSender.sendTemplate(channelId, to, data.templateName, {});
+      default:
+        throw new Error(`Unsupported content type for dispatch`);
+    }
+  }
+
   private buildContent(input: SendMessageInput['content']): MessageContent {
-    switch (input.type) {
+    switch (input.type.toUpperCase()) {
       case 'TEXT':
         return MessageContent.text(input.body!);
       case 'MEDIA':

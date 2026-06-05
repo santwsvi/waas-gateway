@@ -27,7 +27,8 @@ export class ConnectChannelUseCase {
 
     channel.connect();
     await this.providerLifecycle.connect(channel);
-    channel.markConnected();
+    // Don't markConnected() here — Baileys connects asynchronously.
+    // The adapter fires onConnected callback when the WS handshake completes.
 
     await this.channelRepo.save(channel);
 

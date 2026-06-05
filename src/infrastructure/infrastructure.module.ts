@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { WORKSPACE_REPOSITORY } from '@domain/workspace/ports/workspace-repository.port.js';
 import { CHANNEL_REPOSITORY } from '@domain/channel/ports/channel-repository.port.js';
@@ -24,6 +24,8 @@ import {
 import { InMemoryProviderAdapter } from './providers/in-memory/in-memory-provider.adapter.js';
 import { BaileysProviderAdapter } from './providers/baileys/baileys-provider.adapter.js';
 
+import { BaileysConnectionSync } from './baileys-connection-sync.service.js';
+
 function createRepositoryProviders(mode: string) {
   if (mode === 'prisma') {
     return [
@@ -45,14 +47,15 @@ function createRepositoryProviders(mode: string) {
 
 function createProviderAdapters(providerMode: string) {
   if (providerMode === 'baileys') {
+    const baileysAdapter = new BaileysProviderAdapter();
     return [
       {
         provide: PROVIDER_LIFECYCLE,
-        useFactory: () => new BaileysProviderAdapter(),
+        useValue: baileysAdapter,
       },
       {
         provide: MESSAGE_SENDER,
-        useFactory: () => new BaileysProviderAdapter(),
+        useValue: baileysAdapter,
       },
     ];
   }
@@ -63,6 +66,7 @@ function createProviderAdapters(providerMode: string) {
   ];
 }
 
+@Global()
 @Module({
   imports: [ConfigModule],
 })
@@ -79,6 +83,10 @@ export class InfrastructureModule {
     ];
 
     const allProviders = [...repoProviders, ...providerAdapters, ...sharedProviders];
+
+    if (providerMode === 'baileys') {
+      allProviders.push(BaileysConnectionSync as unknown as typeof allProviders[number]);
+    }
 
     return {
       module: InfrastructureModule,

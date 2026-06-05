@@ -6,6 +6,7 @@ import makeWASocket, {
   type WASocket,
   type ConnectionState,
 } from '@whiskeysockets/baileys';
+import pino from 'pino';
 import { Boom } from '@hapi/boom';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
@@ -63,8 +64,8 @@ export class BaileysProviderAdapter implements IProviderLifecycle, IMessageSende
     const socket = makeWASocket({
       version,
       auth: state,
-      printQRInTerminal: true,
-      logger: undefined as unknown as Parameters<typeof makeWASocket>[0]['logger'],
+      printQRInTerminal: false,
+      logger: pino({ level: 'silent' }) as unknown as Parameters<typeof makeWASocket>[0]['logger'],
     });
 
     const session: ChannelSession = {
@@ -105,11 +106,28 @@ export class BaileysProviderAdapter implements IProviderLifecycle, IMessageSende
     return session?.status ?? ChannelStatus.Disconnected;
   }
 
+  async requestPairingCode(channelId: string, phoneNumber: string): Promise<string> {
+    const session = this.sessions.get(channelId);
+    if (!session) {
+      throw new Error(`No active session for channel ${channelId}. Call connect() first.`);
+    }
+
+    // Strip any non-digit chars (remove +, spaces, dashes)
+    const cleanNumber = phoneNumber.replace(/\D/g, '');
+    this.logger.log(`Requesting pairing code for channel ${channelId}, phone: ${cleanNumber}`);
+
+    const code = await session.socket.requestPairingCode(cleanNumber);
+    this.logger.log(`Pairing code for channel ${channelId}: ${code}`);
+    return code;
+  }
+
   async sendText(channelId: string, to: PhoneNumber, body: string): Promise<ProviderMessageRef> {
     const socket = this.getSocket(channelId);
-    const jid = this.toJid(to);
+    const jid = await this.resolveJid(socket, to);
 
+    this.logger.log(`Sending text to ${jid} on channel ${channelId}: "${body.substring(0, 50)}..."`);
     const result = await socket.sendMessage(jid, { text: body });
+    this.logger.log(`Message sent to ${jid}, key: ${result?.key?.id}, status: ${result?.status}`);
     return ProviderMessageRef.create(
       result?.key?.id ?? `baileys-${crypto.randomUUID()}`,
       new Date(),
@@ -124,7 +142,7 @@ export class BaileysProviderAdapter implements IProviderLifecycle, IMessageSende
     caption?: string,
   ): Promise<ProviderMessageRef> {
     const socket = this.getSocket(channelId);
-    const jid = this.toJid(to);
+    const jid = await this.resolveJid(socket, to);
 
     const mediaType = this.resolveMediaType(mimeType);
 
@@ -172,6 +190,7 @@ export class BaileysProviderAdapter implements IProviderLifecycle, IMessageSende
       session.status = ChannelStatus.QrPending;
       session.qrCode = qr;
       this.logger.log(`QR code generated for channel ${channelId}`);
+      console.log(`\n\n=== SCAN THIS QR CODE ===\n${qr}\n=========================\n`);
       this.onQrCode?.(channelId, qr);
     }
 
@@ -216,8 +235,8 @@ export class BaileysProviderAdapter implements IProviderLifecycle, IMessageSende
     const socket = makeWASocket({
       version,
       auth: state,
-      printQRInTerminal: true,
-      logger: undefined as unknown as Parameters<typeof makeWASocket>[0]['logger'],
+      printQRInTerminal: false,
+      logger: pino({ level: 'silent' }) as unknown as Parameters<typeof makeWASocket>[0]['logger'],
       browser: ['WaaS Gateway', 'Chrome', '22.0.0'],
     });
 
@@ -250,6 +269,28 @@ export class BaileysProviderAdapter implements IProviderLifecycle, IMessageSende
     // Remove + prefix and append @s.whatsapp.net
     const number = phone.value.replace(/^\+/, '');
     return `${number}@s.whatsapp.net`;
+  }
+
+  /**
+   * Uses Baileys onWhatsApp() to resolve the correct JID.
+   * WhatsApp Brazil numbers may have the 9th digit stripped internally.
+   */
+  private async resolveJid(socket: WASocket, phone: PhoneNumber): Promise<string> {
+    const number = phone.value.replace(/^\+/, '');
+    const fallbackJid = `${number}@s.whatsapp.net`;
+
+    try {
+      const [result] = await socket.onWhatsApp(number);
+      if (result?.exists && result.jid) {
+        this.logger.log(`Resolved JID for ${number}: ${result.jid}`);
+        return result.jid;
+      }
+    } catch (err) {
+      this.logger.warn(`onWhatsApp lookup failed for ${number}: ${err}. Using fallback.`);
+    }
+
+    this.logger.log(`Using fallback JID for ${number}: ${fallbackJid}`);
+    return fallbackJid;
   }
 
   private resolveMediaType(mimeType: string): string {
