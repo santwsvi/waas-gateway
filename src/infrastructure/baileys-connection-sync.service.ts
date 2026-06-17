@@ -2,7 +2,7 @@ import { Inject, Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { PROVIDER_LIFECYCLE } from '@domain/channel/ports/provider-lifecycle.port.js';
 import { CHANNEL_REPOSITORY } from '@domain/channel/ports/channel-repository.port.js';
 import type { IChannelRepository } from '@domain/channel/ports/channel-repository.port.js';
-import type { BaileysProviderAdapter } from '../providers/baileys/baileys-provider.adapter.js';
+import type { BaileysProviderAdapter } from './providers/baileys/baileys-provider.adapter.js';
 
 @Injectable()
 export class BaileysConnectionSync implements OnModuleInit {

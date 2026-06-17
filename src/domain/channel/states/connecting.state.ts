@@ -12,4 +12,8 @@ export class ConnectingState extends BaseChannelState {
   markConnected(channel: Channel): void {
     channel.transitionTo(ChannelStatus.Connected);
   }
+
+  disconnect(channel: Channel): void {
+    channel.transitionTo(ChannelStatus.Disconnected);
+  }
 }

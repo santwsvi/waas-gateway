@@ -280,7 +280,8 @@ export class BaileysProviderAdapter implements IProviderLifecycle, IMessageSende
     const fallbackJid = `${number}@s.whatsapp.net`;
 
     try {
-      const [result] = await socket.onWhatsApp(number);
+      const results = await socket.onWhatsApp(number);
+      const result = results?.[0];
       if (result?.exists && result.jid) {
         this.logger.log(`Resolved JID for ${number}: ${result.jid}`);
         return result.jid;

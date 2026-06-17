@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Messaging-as-a-Service Gateway — plug-and-play messaging abstraction",
   "author": "santwsvi",
+  "type": "module",
   "license": "MIT",
   "private": false,
   "engines": {
