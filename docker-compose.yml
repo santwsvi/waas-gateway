@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: waas_dev
       POSTGRES_DB: waas_dev
     ports:
-      - '5433:5432'
+      - '5434:5432'
     volumes:
       - waas-pg-data:/var/lib/postgresql/data
     healthcheck:
@@ -39,9 +39,13 @@ services:
     environment:
       DATABASE_URL: postgresql://waas:waas_dev@postgres:5432/waas_dev
       REDIS_URL: redis://redis:6379
+      NODE_ENV: production
       PORT: '3001'
       PERSISTENCE_MODE: prisma
       PROVIDER_MODE: baileys
+    volumes:
+      - waas-auth-data:/app/.waas-auth
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,3 +55,4 @@ services:
 volumes:
   waas-pg-data:
   waas-redis-data:
+  waas-auth-data:
