@@ -1,6 +1,8 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider            = "prisma-client"
+  output              = "../generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
 }
 
 datasource db {
@@ -123,7 +125,9 @@ model OutboxEvent {
   eventType     String    @map("event_type") @db.VarChar(100)
   aggregateType String    @map("aggregate_type") @db.VarChar(100)
   aggregateId   String    @map("aggregate_id") @db.Uuid
-  workspaceId   String    @map("workspace_id") @db.Uuid
+  // Nullable: lifecycle events (e.g. channel.connected) only know their own
+  // aggregate, not the owning workspace. The FK still holds when it is set.
+  workspaceId   String?   @map("workspace_id") @db.Uuid
   payload       Json
   status        String    @default("PENDING") @db.VarChar(20)
   retryCount    Int       @default(0) @map("retry_count")
@@ -131,7 +135,7 @@ model OutboxEvent {
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   publishedAt   DateTime? @map("published_at") @db.Timestamptz()
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([status, createdAt], name: "idx_outbox_pending")
   @@index([aggregateType, aggregateId], name: "idx_outbox_aggregate")

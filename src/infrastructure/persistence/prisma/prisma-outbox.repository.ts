@@ -18,7 +18,7 @@ export class PrismaOutboxRepository implements IOutboxRepository {
         eventType: event.eventType,
         aggregateType: this.extractAggregateType(event.eventType),
         aggregateId: event.aggregateId,
-        workspaceId: event.aggregateId,
+        workspaceId: this.extractWorkspaceId(event),
         payload: JSON.parse(JSON.stringify(event)),
         status: 'PENDING',
         createdAt: event.occurredAt,
@@ -35,7 +35,7 @@ export class PrismaOutboxRepository implements IOutboxRepository {
         eventType: e.eventType,
         aggregateType: this.extractAggregateType(e.eventType),
         aggregateId: e.aggregateId,
-        workspaceId: e.aggregateId,
+        workspaceId: this.extractWorkspaceId(e),
         payload: JSON.parse(JSON.stringify(e)),
         status: 'PENDING',
         createdAt: e.occurredAt,
@@ -82,5 +82,20 @@ export class PrismaOutboxRepository implements IOutboxRepository {
   private extractAggregateType(eventType: string): string {
     const parts = eventType.split('.');
     return parts.length > 1 ? parts[0] : 'unknown';
+  }
+
+  /**
+   * Workspace-scoped events (`workspace.*`) are their own workspace, so the
+   * aggregateId is the workspace id. Other aggregates expose `workspaceId`
+   * explicitly on their `*.created` events; lifecycle events don't carry it,
+   * in which case we store null (the column is nullable).
+   */
+  private extractWorkspaceId(event: DomainEvent): string | null {
+    if (event.eventType.startsWith('workspace.')) {
+      return event.aggregateId;
+    }
+    const workspaceId = (event as DomainEvent & { workspaceId?: string })
+      .workspaceId;
+    return workspaceId ?? null;
   }
 }
