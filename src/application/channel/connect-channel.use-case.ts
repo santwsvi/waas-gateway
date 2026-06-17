@@ -1,4 +1,4 @@
-import type { ChannelStatus } from '@domain/channel/channel-status.js';
+import { ChannelStatus } from '@domain/channel/channel-status.js';
 import type { IChannelRepository } from '@domain/channel/ports/channel-repository.port.js';
 import type { IProviderLifecycle } from '@domain/channel/ports/provider-lifecycle.port.js';
 import type { IOutboxRepository } from '@domain/shared/ports/outbox-repository.port.js';
@@ -27,8 +27,15 @@ export class ConnectChannelUseCase {
 
     channel.connect();
     await this.providerLifecycle.connect(channel);
-    // Don't markConnected() here — Baileys connects asynchronously.
-    // The adapter fires onConnected callback when the WS handshake completes.
+
+    // Async providers (Baileys) connect over the wire and stay CONNECTING until
+    // their connection callback fires — BaileysConnectionSync marks them
+    // CONNECTED later. Synchronous providers (in-memory) are already connected
+    // once connect() resolves, so reflect that immediately in the aggregate.
+    const providerStatus = await this.providerLifecycle.getStatus(channel.id);
+    if (providerStatus === ChannelStatus.Connected) {
+      channel.markConnected();
+    }
 
     await this.channelRepo.save(channel);
 
